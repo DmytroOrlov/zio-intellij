@@ -11,4 +11,4 @@ Stay tuned... and report suggestions/issues!
 
 1. `gradle buildPlugin`
 2. `.zip` with plugin will be created in the `build/distributions` directory
-3. In Intellij open `Preferences | Plugins` and select "Install Plugin from Disk..."
+3. In Intellij open `File | Settings | Plugins` and select "Install Plugin from Disk..." from the settings icon (TODO insert gearwheel icon)
