@@ -8,15 +8,21 @@ import org.jetbrains.plugins.scala.lang.psi.impl.toplevel.typedef.SyntheticMembe
 import org.jetbrains.plugins.scala.lang.psi.types.PhysicalMethodSignature
 
 class ModulePatternAccessible extends SyntheticMembersInjector {
+  private val accessible = "zio.macros.annotation.accessible"
+
+  private def hasAccessible(source: ScTypeDefinition) =
+    source.findAnnotationNoAliases(accessible) != null
 
   private def annotationFirstParam(scAnnotation: ScAnnotation): Option[String] =
     scAnnotation.annotationExpr.getAnnotationParameters.collectFirst {
       case sl: ScLiteralImpl => sl.getValue()
     }
 
-  private def helperObjectExtension(annotation: ScAnnotation, sco: ScObject): Seq[String] =
+  private def helperObjectExtension(annotation: ScAnnotation, sco: ScObject, structuralTyping: Boolean): Seq[String] =
     annotationFirstParam(annotation)
-      .map(name => s"def $name : ${sco.qualifiedName}.Service[${sco.qualifiedName}] = ???")
+      .map(name =>
+        if (structuralTyping) s"def $name : ${sco.qualifiedName} = ???"
+        else s"def $name : ${sco.qualifiedName}.Service[${sco.qualifiedName}] = ???")
       .toSeq
 
   private def accessorTraitExtension(sco: ScObject): String = {
@@ -32,7 +38,7 @@ class ModulePatternAccessible extends SyntheticMembersInjector {
 
   private def findAccessibleMacroAnnotation(sco: ScObject): Option[ScAnnotation] = {
     val companion = sco.fakeCompanionClassOrCompanionClass
-    Option(companion.getAnnotation("zio.macros.annotation.accessible")).collect {
+    Option(companion.getAnnotation(accessible)).collect {
       case a: ScAnnotation => a
     }
   }
@@ -41,8 +47,10 @@ class ModulePatternAccessible extends SyntheticMembersInjector {
     source match {
       case sco: ScObject =>
         val annotation = findAccessibleMacroAnnotation(sco)
-        annotation.map(a => helperObjectExtension(a, sco) :+ accessorTraitExtension(sco)).getOrElse(Nil)
+        annotation.map(a => helperObjectExtension(a, sco, !sco.typeDefinitions.exists(_.name == "Service")) :+ accessorTraitExtension(sco)).getOrElse(Nil)
       case _ =>
         Nil
     }
+
+  override def needsCompanionObject(source: ScTypeDefinition) = hasAccessible(source)
 }
