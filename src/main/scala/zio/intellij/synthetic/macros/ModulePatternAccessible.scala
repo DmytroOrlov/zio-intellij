@@ -12,13 +12,19 @@ import zio.intellij.utils.TypeCheckUtils._
 import zio.intellij.utils._
 
 class ModulePatternAccessible extends SyntheticMembersInjector {
+  private val accessibleAnnotation = "zio.macros.accessible"
 
   private val hasDesignator = "zio.Has"
 
+  override def needsCompanionObject(source: ScTypeDefinition) =
+    source.findAnnotationNoAliases(accessibleAnnotation) != null
+
   private def members(sco: ScObject): Seq[String] = {
-    val serviceName  = s"${sco.qualifiedName}.Service"
+    val serviceName  =
+      if (sco.typeDefinitions.exists(_.name == "Service")) s"${sco.qualifiedName}.Service"
+      else sco.qualifiedName
     val aliasName    = s"${sco.qualifiedName}.${sco.name}"
-    val serviceTrait = sco.typeDefinitions.find(_.name == "Service")
+    val serviceTrait = findTypeDefByName(sco.getProject, serviceName)
     val methods      = serviceTrait.toSeq.flatMap(td => td.allMethods ++ td.allVals)
 
     def withTypeParams(srv: String): String =
@@ -82,7 +88,7 @@ class ModulePatternAccessible extends SyntheticMembersInjector {
   }
 
   private def findAccessibleMacroAnnotation(sco: ScObject): Option[ScAnnotation] =
-    Option(sco.getAnnotation("zio.macros.accessible")).collect {
+    Option(sco.fakeCompanionClassOrCompanionClass.getAnnotation(accessibleAnnotation)).collect {
       case a: ScAnnotation => a
     }
 
